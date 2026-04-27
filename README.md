@@ -20,6 +20,8 @@ bash scripts/init.sh
 
 As of **March 3rd, 2026**, I patched various bugs with GitHub Codespaces (hopefully) and now port auto forwarding should be resolved. Optimizations and overall bug fixes have been patched as well. After the setup for Revision is finished, it should automatically open a new tab with the proxy for you to use.
 
+As of **April 27th, 2026**, I fixed Revision to work for the latest versions of ScramJet, as they completely redesigned their proxy's architecture. Revision now injects into the demo pages for ScramJet and works flawlessly. Revision also supports searches as well as links, using the DuckDuckGo search engine.
+
 ---
 
 ### Thank You ❤️
