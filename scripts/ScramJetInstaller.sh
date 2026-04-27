@@ -1,7 +1,8 @@
 #!/bin/bash
 set -euo pipefail
 
-SCRAMJET_DIR="ScramJet"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+SCRAMJET_DIR="$ROOT_DIR/ScramJet"
 CORE_DIR="$SCRAMJET_DIR/packages/core"
 REWRITER_WASM_DIR="$CORE_DIR/rewriter/wasm"
 
@@ -58,7 +59,7 @@ export RUSTFLAGS='-Zlocation-detail=none -Zfmt-debug=none'
 
 cd "$REWRITER_WASM_DIR"
 bash build.sh
-cd ../../../..
+cd "$ROOT_DIR"
 
 pnpm --dir "$CORE_DIR" run build
 echo "ScramJet Installer complete!"
