@@ -3,6 +3,7 @@ set -euo pipefail
 
 maxRetries=3
 count=0
+devCommand="${REVISION_DEV_CMD:-node server.js}"
 
 bash scripts/node.sh
 bash scripts/downloader.sh
@@ -15,7 +16,7 @@ until [ "$count" -ge "$maxRetries" ]; do
     echo "Attempt $((count + 1))..."
 
     set +e
-    pnpm run dev
+    eval "$devCommand"
     exitCode=$?
     set -e
 

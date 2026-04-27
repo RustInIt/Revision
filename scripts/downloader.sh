@@ -5,15 +5,45 @@ ScramJet="./ScramJet"
 Cache="$ScramJet/RevisionCache.json"
 URL="https://raw.githubusercontent.com/MercuryWorkshop/scramjet/refs/heads/main/package.json"
 
+get_json_field() {
+        local file="$1"
+        local field="$2"
+        node -e "
+const fs = require('node:fs');
+try {
+    const data = JSON.parse(fs.readFileSync(process.argv[1], 'utf8'));
+    const value = data[process.argv[2]];
+    process.stdout.write(value == null ? '' : String(value));
+} catch {
+    process.stdout.write('');
+}
+" "$file" "$field"
+}
+
 mkdir -p "$ScramJet"
 
 if [[ -f "$Cache" ]]; then
-    localVersion=$(jq -r '.installed // "-1"' "$Cache" 2>/dev/null)
+        localVersion="$(get_json_field "$Cache" "installed")"
+        if [[ -z "$localVersion" ]]; then
+                localVersion="-1"
+        fi
 else
     localVersion="-1"
 fi
 
-remoteVersion=$(curl -s "$URL" | jq -r '.version')
+remoteVersion="$(curl -fsSL "$URL" | node -e '
+const fs = require("node:fs");
+let input = "";
+process.stdin.on("data", (chunk) => input += chunk);
+process.stdin.on("end", () => {
+    try {
+        const parsed = JSON.parse(input);
+        process.stdout.write(parsed.version ? String(parsed.version) : "");
+    } catch {
+        process.stdout.write("");
+    }
+});
+')"
 
 if [[ -z "$remoteVersion" || "$remoteVersion" == "null" ]]; then
     echo "Failed to resolve remote ScramJet version."
@@ -27,17 +57,12 @@ fi
 if [[ "$localVersion" != "$remoteVersion" ]]; then
     echo "Version mismatch or uninitialized, reinstalling ScramJet..."
 
-    echo '{ "precheck": { "usingAny": false, "PORT": -1 }, "PORTInfo": {} }' | jq '.' > cache.json
+    printf '{\n  "precheck": { "usingAny": false, "PORT": -1 },\n  "PORTInfo": {}\n}\n' > cache.json
 
-    if [ -d "$ScramJet/.git" ]; then
-        git -C "$ScramJet" reset --hard
-        git -C "$ScramJet" pull --ff-only
-    else
-        rm -rf "$ScramJet"
-        git clone --depth 1 https://github.com/MercuryWorkshop/ScramJet.git "$ScramJet"
-    fi
+    rm -rf "$ScramJet"
+    git clone --recursive https://github.com/MercuryWorkshop/ScramJet.git "$ScramJet"
 
-    echo "{ \"installed\": \"$remoteVersion\" }" | jq '.' > "$Cache"
+    printf '{\n  "installed": "%s"\n}\n' "$remoteVersion" > "$Cache"
     echo "Cloned ScramJet version $remoteVersion"
     bash scripts/ScramJetInstaller.sh
 else

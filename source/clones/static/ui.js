@@ -12,61 +12,130 @@
  * 
  */
 
-const { ScramjetController } = $scramjetLoadController();
+const { Controller, config } = $scramjetController;
 
-const ScramJet = new ScramjetController({
-	files: {
-		wasm: "/scram/scramjet.wasm.wasm",
-		all: "/scram/scramjet.all.js",
-		sync: "/scram/scramjet.sync.js",
-	},
-	flags: {
-		rewriterLogs: false,
-		scramitize: false,
-		cleanErrors: true,
-		sourcemaps: true,
-	},
-});
+config.injectPath = "/controller/controller.inject.js";
 
-ScramJet.init();
-navigator.serviceWorker.register("./sw.js");
+let controller;
+let frame;
+let mountedFrame = false;
 
-const connection = new BareMux.BareMuxConnection("/baremux/worker.js");
-connection.setTransport("/epoxy/index.mjs", [{ wisp: _CONFIG?.wispurl || (location.protocol === "https:" ? "wss" : "ws") + "://" + location.host + "/wisp/" }]);
+function resolveInputToUrl(input) {
+	const trimmed = String(input || "").trim();
+	if (!trimmed) return "https://duckduckgo.com";
+
+	if (/^[a-zA-Z][a-zA-Z\d+.-]*:\/\//.test(trimmed)) {
+		return trimmed;
+	}
+
+	const looksLikeHost =
+		/^(localhost|\d{1,3}(?:\.\d{1,3}){3})(:\d+)?(\/.*)?$/i.test(trimmed) ||
+		(/^[^\s]+\.[^\s]+/.test(trimmed) && !trimmed.includes(" "));
+
+	if (looksLikeHost) {
+		return `https://${trimmed}`;
+	}
+
+	return `https://duckduckgo.com/?q=${encodeURIComponent(trimmed)}`;
+}
+
+function getWispUrl() {
+	const protocol = location.protocol === "https:" ? "wss" : "ws";
+	return globalThis?._CONFIG?.wispurl || `${protocol}://${location.host}/wisp/`;
+}
+
+async function waitForControllerOrReady(registration, timeoutMs = 10000) {
+	if (navigator.serviceWorker.controller) return;
+
+	const ready = navigator.serviceWorker.ready.then(() => {});
+	const controllerChanged = new Promise((resolve) => {
+		const onChange = () => {
+			navigator.serviceWorker.removeEventListener("controllerchange", onChange);
+			resolve();
+		};
+		navigator.serviceWorker.addEventListener("controllerchange", onChange, { once: true });
+	});
+	const timeout = new Promise((resolve) => setTimeout(resolve, timeoutMs));
+
+	await Promise.race([ready, controllerChanged, timeout]);
+
+	if (!navigator.serviceWorker.controller && registration.active) {
+		await new Promise((resolve) => {
+			navigator.serviceWorker.addEventListener("controllerchange", () => resolve(), { once: true });
+		});
+	}
+}
+
+async function initController() {
+	const registration = await navigator.serviceWorker.register("/sw.js");
+	await waitForControllerOrReady(registration);
+
+	const serviceworker = navigator.serviceWorker.controller ?? registration.active;
+	if (!serviceworker) {
+		throw new Error("No service worker available for controller initialization.");
+	}
+
+	const LibcurlClient = globalThis?.LibcurlTransport?.LibcurlClient;
+	if (!LibcurlClient) {
+		throw new Error("Libcurl transport is unavailable.");
+	}
+
+	controller = new Controller({
+		serviceworker,
+		transport: new LibcurlClient({
+			wisp: getWispUrl(),
+		}),
+	});
+
+	await controller.wait();
+	frame = controller.createFrame();
+}
 
 function showWebContent(body, frame) {
-    body.innerHTML = "";
-    body.appendChild(frame.frame);
+    if (!mountedFrame) {
+		body.innerHTML = "";
+		const frameElement = frame.element || frame.frame;
+		if (!frameElement) {
+			throw new Error("ScramJet frame element was not created.");
+		}
+		body.appendChild(frameElement);
 	body.id = "app";
 
 	const footer = document.createElement("footer");
     footer.innerHTML = `
-        <input id="search-bar" class="no-cursor search-bar" autocomplete="off" autocapitalize="off" placeholder="Provide any link and access now ..." />
+		<input id="search-bar" class="no-cursor search-bar" autocomplete="off" autocapitalize="off" placeholder="Search DuckDuckGo or enter URL ..." />
     `;
 
 	body.appendChild(footer);
 	const search = document.getElementById("search-bar"); // 100% efficient, I promise..
     search.addEventListener("keydown", function(event) {
 		if (event.key == "Enter") {
-			var URL = search.value.trim();
-			if (!URL.startsWith("http")) URL = "https://" + URL;
-			showWebContent(body, frame);
-			frame.go(URL);
+			frame.go(resolveInputToUrl(search.value));
 		}
 	});
+		mountedFrame = true;
+	}
 }
 
-document.addEventListener("DOMContentLoaded", function() {
-	var URL = "https://duckduckgo.com";
-	const frame = ScramJet.createFrame();
+document.addEventListener("DOMContentLoaded", async function() {
+	let URL = "";
 	const search = document.getElementById("search");
 	const body = document.getElementById("app");
 
+	try {
+		await initController();
+	} catch (error) {
+		console.error("Failed to initialize ScramJet controller:", error);
+		if (search) {
+			search.placeholder = "Initialization failed, check console logs.";
+		}
+		return;
+	}
+
 	search.value = URL;
-    search.addEventListener("keydown", function(event) {
+	search.addEventListener("keydown", function(event) {
 		if (event.key == "Enter") {
-			URL = search.value.trim();
-			if (!URL.startsWith("http")) URL = "https://" + URL;
+			URL = resolveInputToUrl(search.value);
 			showWebContent(body, frame);
 			frame.go(URL);
 		}

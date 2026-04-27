@@ -1,7 +1,9 @@
 #!/bin/bash
 set -euo pipefail
 
-cd ScramJet/rewriter/wasm
+SCRAMJET_DIR="ScramJet"
+CORE_DIR="$SCRAMJET_DIR/packages/core"
+REWRITER_WASM_DIR="$CORE_DIR/rewriter/wasm"
 
 if ! command -v rustc &> /dev/null; then
     echo "Rust not installed. Installing Rust..."
@@ -30,8 +32,8 @@ if [ -f "$Panic" ]; then
     fi
 fi
 
-if ! command -v wasm-bindgen >/dev/null 2>&1 || ! wasm-bindgen --version | grep -q '0.2.100'; then
-    cargo install wasm-bindgen-cli --version 0.2.100
+if ! command -v wasm-bindgen >/dev/null 2>&1 || ! wasm-bindgen --version | grep -q '0.2.105'; then
+    cargo install wasm-bindgen-cli --version 0.2.105
 fi
 
 if ! command -v wasm-snip >/dev/null 2>&1; then
@@ -51,15 +53,12 @@ if ! command -v wasm-opt >/dev/null 2>&1; then
 fi
 
 export PATH="$HOME/.local/bin:$PATH"
-pnpm install
+pnpm --dir "$SCRAMJET_DIR" install
 export RUSTFLAGS='-Zlocation-detail=none -Zfmt-debug=none'
-STD_FEATURES="panic_immediate_abort"
 
-cargo build --release --target wasm32-unknown-unknown \
-  -Z build-std=panic_abort,std -Z build-std-features=${STD_FEATURES} \
-  --no-default-features --features "debug"
-
+cd "$REWRITER_WASM_DIR"
 bash build.sh
-cd ../../
-pnpm run build:all
+cd ../../../..
+
+pnpm --dir "$CORE_DIR" run build
 echo "ScramJet Installer complete!"

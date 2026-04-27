@@ -1,17 +1,13 @@
-import { createBareServer } from "@nebula-services/bare-server-node";
+import { createBareServer } from "./node_modules/.pnpm/node_modules/@nebula-services/bare-server-node/dist/createServer.js";
 import { createServer } from "http";
 import { createServer as createNetServer } from "net";
-import Fastify from "fastify";
-import fastifyStatic from "@fastify/static";
+import Fastify from "./node_modules/.pnpm/node_modules/fastify/fastify.js";
+import fastifyStatic from "./node_modules/.pnpm/node_modules/@fastify/static/index.js";
 import { join } from "node:path";
-import rspackConfig from "./rspack.config.js";
+import rspackConfig from "./rspack.config.ts";
 import { rspack } from "@rspack/core";
 import { fileURLToPath } from "node:url";
 import { server as wisp } from "@mercuryworkshop/wisp-js/server";
-import { baremuxPath } from "@mercuryworkshop/bare-mux/node";
-import { epoxyPath } from "@mercuryworkshop/epoxy-transport";
-import { libcurlPath } from "@mercuryworkshop/libcurl-transport";
-import { bareModulePath } from "@mercuryworkshop/bare-as-module3";
 import { chmodSync, writeFileSync } from "fs";
 import { PORTManager } from "../source/manager.js";
 
@@ -46,14 +42,31 @@ const fastify = Fastify({
     },
 });
 
+const libcurlDistPath = join(
+    fileURLToPath(new URL(".", import.meta.url)),
+    "./node_modules/.pnpm/node_modules/@mercuryworkshop/libcurl-transport/dist"
+);
+
 fastify.register(fastifyStatic, {
     root: join(fileURLToPath(new URL(".", import.meta.url)), "./static"),
     decorateReply: false,
 });
 
 fastify.register(fastifyStatic, {
-    root: join(fileURLToPath(new URL(".", import.meta.url)), "./dist"),
+    root: join(fileURLToPath(new URL(".", import.meta.url)), "./packages/core/dist"),
+    prefix: "/scramjet/",
+    decorateReply: false,
+});
+
+fastify.register(fastifyStatic, {
+    root: join(fileURLToPath(new URL(".", import.meta.url)), "./packages/core/dist"),
     prefix: "/scram/",
+    decorateReply: false,
+});
+
+fastify.register(fastifyStatic, {
+    root: join(fileURLToPath(new URL(".", import.meta.url)), "./packages/controller/dist"),
+    prefix: "/controller/",
     decorateReply: false,
 });
 
@@ -64,26 +77,8 @@ fastify.register(fastifyStatic, {
 });
 
 fastify.register(fastifyStatic, {
-    root: baremuxPath,
-    prefix: "/baremux/",
-    decorateReply: false,
-});
-
-fastify.register(fastifyStatic, {
-    root: epoxyPath,
-    prefix: "/epoxy/",
-    decorateReply: false,
-});
-
-fastify.register(fastifyStatic, {
-    root: libcurlPath,
+    root: libcurlDistPath,
     prefix: "/libcurl/",
-    decorateReply: false,
-});
-
-fastify.register(fastifyStatic, {
-    root: bareModulePath,
-    prefix: "/baremod/",
     decorateReply: false,
 });
 

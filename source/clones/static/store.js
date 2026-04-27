@@ -11,13 +11,13 @@ const store = $store(
 	{
 		url: "https://duckduckgo.com",
 		wispurl:
-			_CONFIG?.wispurl ||
+			globalThis?._CONFIG?.wispurl ||
 			(location.protocol === "https:" ? "wss" : "ws") +
 				"://" +
 				location.host +
 				"/wisp/",
 		bareurl:
-			_CONFIG?.bareurl ||
+			globalThis?._CONFIG?.bareurl ||
 			(location.protocol === "https:" ? "https" : "http") +
 				"://" +
 				location.host +

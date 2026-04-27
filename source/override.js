@@ -7,21 +7,23 @@ function ScramJetBuilt() {
            JSON.parse(fs.readFileSync(path.join(process.cwd(), "ScramJet", "RevisionCache.json"))).installed !== -1
 }
 
+function copyFile(source, destination) {
+    fs.mkdirSync(path.dirname(destination), { recursive: true });
+    fs.copyFileSync(source, destination);
+}
+
 if (ScramJetBuilt()) {
     console.log("Overriding ScramJet files ...");
     try {
-        // Literally the least efficient way of doing this,
-        //  but I don't care :3
+        const root = process.cwd();
+        const cloneRoot = path.join(root, "source", "clones");
+        const scramjetRoot = path.join(root, "ScramJet");
 
-        const server = fs.readFileSync(path.join(process.cwd(), "source", "clones", "server.js"), "utf-8");
-        const ui = fs.readFileSync(path.join(process.cwd(), "source", "clones", "static", "ui.js"), "utf-8");
-        const index = fs.readFileSync(path.join(process.cwd(), "source", "clones", "static", "index.html"))
-        const store = fs.readFileSync(path.join(process.cwd(), "source", "clones", "static", "store.js"))
-
-        fs.writeFileSync(path.join(process.cwd(), "ScramJet", "server.js"), server);
-        fs.writeFileSync(path.join(process.cwd(), "ScramJet", "static", "ui.js"), ui);
-        fs.writeFileSync(path.join(process.cwd(), "ScramJet", "static", "index.html"), index);
-        fs.writeFileSync(path.join(process.cwd(), "ScramJet", "static", "store.js"), store);
+        copyFile(path.join(cloneRoot, "server.js"), path.join(scramjetRoot, "server.js"));
+        copyFile(path.join(cloneRoot, "static", "ui.js"), path.join(scramjetRoot, "static", "ui.js"));
+        copyFile(path.join(cloneRoot, "static", "index.html"), path.join(scramjetRoot, "static", "index.html"));
+        copyFile(path.join(cloneRoot, "static", "store.js"), path.join(scramjetRoot, "static", "store.js"));
+        copyFile(path.join(cloneRoot, "static", "sw.js"), path.join(scramjetRoot, "static", "sw.js"));
     
         console.log("Successfully replaced original ScramJet files!");
     } catch (error) {
